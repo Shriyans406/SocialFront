@@ -149,22 +149,21 @@ const Editor = () => {
 
   const [title, setTitle] = useState("");
 
- /******************************************************************
- * Firebase Auth Listener
- * Keeps track of logged-in user for cursor identity
- ******************************************************************/
-const [user, setUser] = useState(null);
+  /******************************************************************
+   * Firebase Auth Listener
+   * Keeps track of logged-in user for cursor identity
+   ******************************************************************/
+  const [user, setUser] = useState(null);
 
-useEffect(() => {
-  const auth = getAuth();
+  useEffect(() => {
+    const auth = getAuth();
 
-  const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-    setUser(firebaseUser);
-  });
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
 
-  return () => unsubscribe();
-}, []);
-
+    return () => unsubscribe();
+  }, []);
 
   const updateTitle = async (newTitle) => {
     try {
@@ -228,7 +227,7 @@ useEffect(() => {
         if (response.ok) {
           const data = await response.json();
           // If the DB has a title, set it; otherwise keep "Untitled document"
-          setTitle(data.title || "Untitled document");
+          setTitle(data.title || "Untitled document" ? "" : data.title);
         }
       } catch (err) {
         console.error("Error fetching title:", err);
@@ -335,13 +334,8 @@ useEffect(() => {
               CollaborationCaret.configure({
                 provider,
                 user: {
-                  name:
-                    user.displayName ||
-                    user.email ||
-                    "Anonymous",
-                  color: getColorFromString(
-                    user.uid || user.email || "anon"
-                  ),
+                  name: user.displayName || user.email || "Anonymous",
+                  color: getColorFromString(user.uid || user.email || "anon"),
                 },
 
                 render: (caretUser) => {
@@ -469,6 +463,14 @@ useEffect(() => {
                   updateTitle(e.target.value);
                   e.target.blur(); // This removes the cursor from the box
                 }
+              }}
+              style={{
+                fontSize: "18px",
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                // Add this to make the placeholder look like the Google Docs watermark
+                color: title === "" ? "#999" : "#202124",
               }}
             />
           </div>
