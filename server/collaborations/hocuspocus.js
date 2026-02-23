@@ -1,8 +1,9 @@
 import { Server } from "@hocuspocus/server";
 import { Database } from "@hocuspocus/extension-database";
 import Document from "../models/Document.js";
-import mongoose from "mongoose"; //
-import dotenv from "dotenv"; //
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import admin from "../firebaseAdmin.js";
 
 // 1. Load environment variables from .env
 dotenv.config();
@@ -81,8 +82,34 @@ const hocuspocusServer = new Server({
       if (!data.documentName) {
         throw new Error("No document name");
       }
+
+      const { token } = data;
+      if (!token) throw new Error("Unauthorized: No token provided");
+
+      // Verify the token
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      const userEmail = decodedToken.email;
+
+      // Check access in MongoDB
+      if (mongoose.connection && mongoose.connection.db) {
+        const doc = await mongoose.connection.db.collection("document_metadata").findOne({ documentId: data.documentName });
+
+        if (doc) {
+          const isOwner = doc.ownerId === decodedToken.uid || doc.ownerEmail === userEmail;
+          const isShared = doc.sharedWith && doc.sharedWith.includes(userEmail);
+
+          if (!isOwner && !isShared) {
+            throw new Error("Access Denied: You do not have permission to view this document");
+          }
+        }
+      }
+
       return {
-        user: { id: 1, name: "Dev B" },
+        user: {
+          id: decodedToken.uid,
+          name: decodedToken.name || userEmail || "Anonymous",
+          email: userEmail
+        },
       };
     } catch (err) {
       console.error("Authentication Error:", err.message);

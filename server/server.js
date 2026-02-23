@@ -6,6 +6,7 @@ import express from "express";
 import cors from "cors";
 import connectMongo from "./persistence/mongo.js";
 import hocuspocusServer from "./collaborations/hocuspocus.js";
+import verifyToken from "./middleware/auth.js";
 
 const app = express();
 
@@ -27,14 +28,18 @@ const requestLogger = (req, res, next) => {
 // ---------- PHASE 3: DOCUMENT MANAGEMENT ROUTES ----------
 
 // 1. CREATE Route - Updated to use the new connection logic
-app.post("/api/documents/create", async (req, res) => {
+app.post("/api/documents/create", verifyToken, async (req, res) => {
   const { documentId, ownerId, title } = req.body;
+  const userEmail = req.user.email; // From decoded token
+
   try {
     const db = await connectMongo();
     await db.collection("document_metadata").insertOne({
       documentId,
-      ownerId,
+      ownerId,            // Kept for backward compatibility
+      ownerEmail: userEmail, // explicitly save email
       title: title || "Untitled document",
+      sharedWith: [],     // Array of emails
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -45,13 +50,22 @@ app.post("/api/documents/create", async (req, res) => {
   }
 });
 
-// 2. FETCH ALL Route - Updated to remove .db()
-app.get("/api/documents/:userId", async (req, res) => {
+// 2. FETCH ALL Route - Returns docs owned by OR shared with user
+app.get("/api/documents/:userId", verifyToken, async (req, res) => {
   try {
+    const userEmail = req.user.email;
     const db = await connectMongo();
+
+    // We look for documents where the user is the owner OR their email is in sharedWith
     const userDocs = await db
       .collection("document_metadata")
-      .find({ ownerId: req.params.userId })
+      .find({
+        $or: [
+          { ownerId: req.params.userId },
+          { ownerEmail: userEmail },
+          { sharedWith: userEmail }
+        ]
+      })
       .toArray();
 
     res.json(userDocs);
@@ -61,14 +75,28 @@ app.get("/api/documents/:userId", async (req, res) => {
   }
 });
 
-// 3. FETCH ONE Route - Updated to remove .db()
-app.get("/api/documents/metadata/:documentId", async (req, res) => {
+// 3. FETCH ONE Route - Verify access rights
+app.get("/api/documents/metadata/:documentId", verifyToken, async (req, res) => {
   try {
+    const userEmail = req.user.email;
     const db = await connectMongo();
     const doc = await db.collection("document_metadata").findOne({
       documentId: req.params.documentId,
     });
-    res.json(doc || { title: "Untitled document" });
+
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    // Check permissions
+    const isOwner = doc.ownerId === req.user.uid || doc.ownerEmail === userEmail;
+    const isShared = doc.sharedWith && doc.sharedWith.includes(userEmail);
+
+    if (!isOwner && !isShared) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    res.json(doc);
   } catch (error) {
     console.error("FETCH METADATA ERROR:", error);
     res.status(500).json({ error: "Failed to fetch metadata" });
@@ -76,10 +104,20 @@ app.get("/api/documents/metadata/:documentId", async (req, res) => {
 });
 
 // 4. UPDATE Route - Updated to remove .db()
-app.patch("/api/documents/update-title", async (req, res) => {
+app.patch("/api/documents/update-title", verifyToken, async (req, res) => {
   const { documentId, title } = req.body;
   try {
+    const userEmail = req.user.email;
     const db = await connectMongo();
+
+    // First check access
+    const doc = await db.collection("document_metadata").findOne({ documentId });
+    if (!doc) return res.status(404).json({ error: "Not found" });
+
+    const isOwner = doc.ownerId === req.user.uid || doc.ownerEmail === userEmail;
+    const isShared = doc.sharedWith && doc.sharedWith.includes(userEmail);
+    if (!isOwner && !isShared) return res.status(403).json({ error: "Access denied" });
+
     await db
       .collection("document_metadata")
       .updateOne(
@@ -93,18 +131,58 @@ app.patch("/api/documents/update-title", async (req, res) => {
   }
 });
 
+// 5. SHARE Route - Add an email to sharedWith array
+app.post("/api/documents/:documentId/share", verifyToken, async (req, res) => {
+  const { documentId } = req.params;
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ error: "Email is required" });
+
+  try {
+    const userEmail = req.user.email;
+    const db = await connectMongo();
+
+    // Only the owner should be able to share (or anyone with access, but typically owner)
+    const doc = await db.collection("document_metadata").findOne({ documentId });
+    if (!doc) return res.status(404).json({ error: "Not found" });
+
+    const isOwner = doc.ownerId === req.user.uid || doc.ownerEmail === userEmail;
+    if (!isOwner) {
+      return res.status(403).json({ error: "Only the owner can share this document" });
+    }
+
+    await db.collection("document_metadata").updateOne(
+      { documentId },
+      { $addToSet: { sharedWith: email.toLowerCase() } } // $addToSet prevents duplicates
+    );
+
+    res.json({ success: true, message: `Shared with ${email}` });
+  } catch (error) {
+    console.error("SHARE ERROR:", error);
+    res.status(500).json({ error: "Failed to share document" });
+  }
+});
+
 // DELETE Route: Removes document from both metadata and raw data buckets
-app.delete("/api/documents/:documentId", async (req, res) => {
+app.delete("/api/documents/:documentId", verifyToken, async (req, res) => {
   const { documentId } = req.params;
   try {
     const db = await connectMongo();
 
-    // 1. Delete the dashboard entry
+    // 1. Check access
+    const doc = await db.collection("document_metadata").findOne({ documentId });
+    if (!doc) return res.status(404).json({ error: "Not found" });
+
+    // Only owner can delete
+    const isOwner = doc.ownerId === req.user.uid || doc.ownerEmail === req.user.email;
+    if (!isOwner) return res.status(403).json({ error: "Only the owner can delete" });
+
+    // 2. Delete the dashboard entry
     const deleteMetadata = await db
       .collection("document_metadata")
       .deleteOne({ documentId });
 
-    // 2. Delete the actual text data (Hocuspocus/Yjs bucket)
+    // 3. Delete the actual text data (Hocuspocus/Yjs bucket)
     const deleteData = await db
       .collection("documents")
       .deleteOne({ name: documentId });
@@ -139,7 +217,7 @@ const startServer = async () => {
 
     const server = http.createServer(app);
     server.listen(PORT, () => {
-      console.log(`🚀 Express running on http://localhost:${PORT}`);
+      console.log(`Express running on http://localhost:${PORT}`);
     });
 
     hocuspocusServer.listen(1234).then(() => {

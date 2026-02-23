@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   // 1. Fetch real documents from MongoDB on load
@@ -18,15 +19,21 @@ const Dashboard = () => {
 
         // FETCH real files using the User ID
         try {
+          const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
           const response = await fetch(
-            `http://localhost:3000/api/documents/${currentUser.uid}`,
+            `${API_URL}/api/documents/${currentUser.uid}`,
           );
           if (response.ok) {
             const data = await response.json();
             setDocuments(data); // This fills your "Recent Documents" section
+          } else {
+            console.error("Failed to fetch documents");
           }
         } catch (err) {
           console.error("Dashboard Fetch Error:", err);
+          alert("Failed to fetch recent documents.");
+        } finally {
+          setLoading(false);
         }
       } else {
         navigate("/");
@@ -41,12 +48,17 @@ const Dashboard = () => {
     const userId = auth.currentUser?.uid; // Should be 'OjX21TsDXK...'
 
     try {
+      const token = await auth.currentUser.getIdToken();
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
       // We must call Port 3000 to reach your Express server
       const response = await fetch(
-        "http://localhost:3000/api/documents/create",
+        `${API_URL}/api/documents/create`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify({
             documentId: newId,
             ownerId: userId,
@@ -58,9 +70,46 @@ const Dashboard = () => {
       if (response.ok) {
         console.log("Metadata created successfully!");
         navigate(`/document/${newId}`);
+      } else {
+        throw new Error("Server responded with an error");
       }
     } catch (err) {
       console.error("Failed to create metadata record:", err);
+      alert("Failed to create document.");
+    }
+  };
+
+  const deleteDocument = async (e, documentId) => {
+    // CRITICAL: Stops the browser from opening the file while you try to delete it
+    e.stopPropagation();
+
+    if (!window.confirm("Are you sure? This deletes the file from everywhere."))
+      return;
+
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+      const response = await fetch(
+        `${API_URL}/api/documents/${documentId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        },
+      );
+
+      if (response.ok) {
+        // Instantly remove the card from the UI
+        setDocuments((prev) =>
+          prev.filter((doc) => doc.documentId !== documentId),
+        );
+      } else {
+        throw new Error("Failed to delete from server");
+      }
+    } catch (err) {
+      console.error("UI Delete Error:", err);
+      alert("Failed to delete document.");
     }
   };
 
@@ -68,7 +117,7 @@ const Dashboard = () => {
     signOut(auth);
   };
 
-  if (!user) return <div className="loading">Loading your files...</div>;
+  if (!user || loading) return <div className="loading" style={{ textAlign: "center", marginTop: "50px", fontFamily: "sans-serif" }}>Loading your Dashboard...</div>;
 
   return (
     <div
@@ -77,36 +126,73 @@ const Dashboard = () => {
     >
       <header
         style={{
-          background: "white",
-          padding: "10px 40px",
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "space-between", // Forces logo to left and user info to right
           alignItems: "center",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+          padding: "8px 20px",
+          background: "white",
+          borderBottom: "1px solid #dadce0",
+          width: "100%", // Ensures it spans the full browser width
+          boxSizing: "border-box", // Prevents padding from causing overflow
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        {/* --- LEFT SIDE: LOGO AND NAME --- */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <img
             src="https://cdn.worldvectorlogo.com/logos/svg-2.svg"
-            width="30"
-            alt="logo"
+            alt="Docs Logo"
+            style={{ width: "35px", height: "35px", cursor: "pointer" }}
+            onClick={() => navigate("/dashboard")}
           />
-          <h2 style={{ fontSize: "1.2rem", color: "#5f6368" }}>Docs</h2>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-          <span style={{ fontSize: "0.9rem", color: "#5f6368" }}>
-            {user.email}
+          <span
+            style={{
+              fontSize: "22px",
+              color: "#5f6368",
+              fontWeight: "400",
+              fontFamily: "Product Sans, Arial, sans-serif",
+            }}
+          >
+            Docs
           </span>
+        </div>
+
+        {/* --- RIGHT SIDE: EMAIL AND LOGOUT --- */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column", // Stacks email directly above the button
+            alignItems: "flex-end", // Aligns both text and button to the right edge
+            gap: "4px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "13px",
+              color: "#5f6368",
+              fontWeight: "500",
+              marginRight: "4px", // Small tweak for alignment
+            }}
+          >
+            {user?.email} {/* Dynamic email from your auth state */}
+          </span>
+
           <button
             onClick={handleLogout}
             style={{
+              padding: "6px 20px",
+              background: "#1a73e8",
+              color: "white",
               border: "none",
-              background: "none",
+              borderRadius: "4px",
               cursor: "pointer",
-              color: "#5f6368",
+              fontSize: "14px",
+              fontWeight: "500",
+              transition: "background 0.2s",
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#1765cc")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#1a73e8")}
           >
-            <LogOut size={20} />
+            Logout
           </button>
         </div>
       </header>
@@ -169,8 +255,39 @@ const Dashboard = () => {
                 border: "1px solid #dadce0",
                 borderRadius: "4px",
                 cursor: "pointer",
+                position: "relative", // Needed for the button positioning
               }}
             >
+              {/* THE DELETE BUTTON (THE CROSS SYMBOL) */}
+              <button
+                onClick={(e) => deleteDocument(e, doc.documentId)}
+                style={{
+                  position: "absolute",
+                  top: "8px",
+                  right: "8px",
+                  background: "#f1f3f4",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: "24px",
+                  height: "24px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "#5f6368",
+                  zIndex: "10",
+                  fontWeight: "bold",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "#e8eaed")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "#f1f3f4")
+                }
+              >
+                ×
+              </button>
+
               <div
                 style={{
                   height: "140px",

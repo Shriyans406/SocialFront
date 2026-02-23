@@ -3,13 +3,13 @@ import { getAuth } from "firebase/auth";
 
 // PASTE YOUR KEYS FROM STEP 1.9 HERE:
 const firebaseConfig = {
-  apiKey: "AIzaSyBXJxS2rJFUQH9gFqS_KvTnSO109Ui0hvc",
-  authDomain: "docs-clone-2306d.firebaseapp.com",
-  projectId: "docs-clone-2306d",
-  storageBucket: "docs-clone-2306d.firebasestorage.app",
-  messagingSenderId: "323512684812",
-  appId: "1:323512684812:web:d6a3d844f98e824a013929",
-  measurementId: "G-M2BD1FXQ39",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
