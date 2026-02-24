@@ -154,7 +154,9 @@ const Editor = () => {
   // Share Modal State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareEmail, setShareEmail] = useState("");
+  const [shareRole, setShareRole] = useState("editor"); // editor | viewer
   const [sharedWithList, setSharedWithList] = useState([]);
+  const [userRole, setUserRole] = useState("owner"); // current user's role on this doc
 
   /******************************************************************
    * Firebase Auth Listener
@@ -250,7 +252,7 @@ const Editor = () => {
     };
   }, [documentId]);
 
-  // This is the new "pipe" specifically for the Title
+  // Fetch document metadata (title, role, permissions)
   useEffect(() => {
     const fetchMetadata = async () => {
       if (!user || !documentId) return;
@@ -263,8 +265,11 @@ const Editor = () => {
         );
         if (response.ok) {
           const data = await response.json();
-          setTitle(data.title || "Untitled document" ? data.title : "Untitled document");
-          setSharedWithList(data.sharedWith || []);
+          setTitle(data.title === "Untitled document" ? "" : (data.title || ""));
+          setUserRole(data.userRole || "viewer");
+          // Build sharedWith list from permissions array
+          const perms = (data.permissions || []).filter(p => p.role !== "owner");
+          setSharedWithList(perms);
         }
       } catch (err) {
         console.error("Error fetching metadata:", err);
@@ -480,16 +485,16 @@ const Editor = () => {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
       const response = await fetch(`${API_URL}/api/documents/${documentId}/share`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ email: shareEmail }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ email: shareEmail, role: shareRole }),
       });
       if (response.ok) {
-        setSharedWithList(prev => [...new Set([...prev, shareEmail.toLowerCase()])]);
+        setSharedWithList(prev => {
+          const existing = prev.filter(p => p.userEmail !== shareEmail.toLowerCase());
+          return [...existing, { userEmail: shareEmail.toLowerCase(), role: shareRole }];
+        });
         setShareEmail("");
-        alert(`Successfully shared with ${shareEmail}`);
+        alert(`Successfully shared with ${shareEmail} as ${shareRole}`);
       } else {
         const errData = await response.json();
         alert(`Failed to share: ${errData.error}`);
@@ -511,47 +516,68 @@ const Editor = () => {
         }}>
           <div style={{
             background: "white", padding: "24px", borderRadius: "8px",
-            width: "400px", maxWidth: "90%", boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+            width: "440px", maxWidth: "90%", boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
               <h2 style={{ margin: 0, fontSize: "1.25rem", color: "#202124" }}>Share document</h2>
-              <button
-                onClick={() => setIsShareModalOpen(false)}
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#5F6368" }}
-              >
+              <button onClick={() => setIsShareModalOpen(false)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#5F6368" }}>
                 <X size={20} />
               </button>
             </div>
 
+            {/* Email + Role selector row */}
             <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
               <input
                 type="email"
-                placeholder="Add people an email address"
+                placeholder="Add people by email"
                 value={shareEmail}
                 onChange={(e) => setShareEmail(e.target.value)}
-                style={{ flex: 1, padding: "8px 12px", border: "1px solid #DADCE0", borderRadius: "4px" }}
+                style={{ flex: 1, padding: "8px 12px", border: "1px solid #DADCE0", borderRadius: "4px", fontSize: "14px" }}
               />
+              <select
+                value={shareRole}
+                onChange={(e) => setShareRole(e.target.value)}
+                style={{ padding: "8px", border: "1px solid #DADCE0", borderRadius: "4px", fontSize: "14px", color: "#202124" }}
+              >
+                <option value="editor">Editor</option>
+                <option value="viewer">Viewer</option>
+              </select>
               <button
                 onClick={handleShare}
-                style={{ background: "#1A73E8", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer" }}
+                style={{ background: "#1A73E8", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer", whiteSpace: "nowrap" }}
               >
                 Send
               </button>
             </div>
 
-            <h3 style={{ fontSize: "1rem", color: "#5F6368", marginBottom: "12px" }}>People with access</h3>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, maxHeight: "150px", overflowY: "auto" }}>
+            <h3 style={{ fontSize: "0.9rem", color: "#5F6368", marginBottom: "12px", fontWeight: "500" }}>People with access</h3>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, maxHeight: "180px", overflowY: "auto" }}>
               {sharedWithList.length === 0 ? (
                 <li style={{ color: "#70757A", fontSize: "0.9rem" }}>Only you have access</li>
               ) : (
-                sharedWithList.map(email => (
-                  <li key={email} style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
-                    <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: getColorFromString(email), color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold" }}>
-                      {email.charAt(0).toUpperCase()}
-                    </div>
-                    <span style={{ color: "#202124", fontSize: "0.9rem" }}>{email}</span>
-                  </li>
-                ))
+                sharedWithList.map(perm => {
+                  const email = perm.userEmail || perm;
+                  const role = perm.role || "editor";
+                  return (
+                    <li key={email} style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                      <div style={{
+                        width: "32px", height: "32px", borderRadius: "50%", background: getColorFromString(email),
+                        color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", flexShrink: 0,
+                      }}>
+                        {email.charAt(0).toUpperCase()}
+                      </div>
+                      <span style={{ color: "#202124", fontSize: "0.9rem", flex: 1 }}>{email}</span>
+                      <span style={{
+                        fontSize: "11px", padding: "2px 8px", borderRadius: "10px", fontWeight: "600",
+                        background: role === "editor" ? "#e8f0fe" : "#f1f3f4",
+                        color: role === "editor" ? "#1a73e8" : "#5f6368",
+                      }}>
+                        {role}
+                      </span>
+                    </li>
+                  );
+                })
               )}
             </ul>
 
@@ -576,6 +602,8 @@ const Editor = () => {
               src="https://cdn.worldvectorlogo.com/logos/svg-2.svg"
               alt="logo"
               width="36"
+              style={{ cursor: "pointer" }}
+              onClick={() => window.location.href = "/dashboard"}
             />
           </div>
           <div className="title-section">
@@ -584,23 +612,23 @@ const Editor = () => {
               className="docs-title-input"
               placeholder="Untitled document"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              // Trigger save when you click away
-              onBlur={(e) => updateTitle(e.target.value)}
-              // Trigger save when you press Enter
+              onChange={(e) => userRole !== "viewer" && setTitle(e.target.value)}
+              onBlur={(e) => userRole !== "viewer" && updateTitle(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === "Enter" && userRole !== "viewer") {
                   updateTitle(e.target.value);
-                  e.target.blur(); // This removes the cursor from the box
+                  e.target.blur();
                 }
               }}
+              readOnly={userRole === "viewer"}
+              title={userRole === "viewer" ? "You have view-only access" : ""}
               style={{
                 fontSize: "18px",
                 border: "none",
                 outline: "none",
                 background: "transparent",
-                // Add this to make the placeholder look like the Google Docs watermark
                 color: title === "" ? "#999" : "#202124",
+                cursor: userRole === "viewer" ? "default" : "text",
               }}
             />
           </div>

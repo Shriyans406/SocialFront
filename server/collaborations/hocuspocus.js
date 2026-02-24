@@ -90,18 +90,26 @@ const hocuspocusServer = new Server({
       const decodedToken = await admin.auth().verifyIdToken(token);
       const userEmail = decodedToken.email;
 
-      // Check access in MongoDB
+      // Check access via permissions collection
       if (mongoose.connection && mongoose.connection.db) {
-        const doc = await mongoose.connection.db.collection("document_metadata").findOne({ documentId: data.documentName });
+        const permission = await mongoose.connection.db
+          .collection("permissions")
+          .findOne({
+            documentId: data.documentName,
+            $or: [{ userId: decodedToken.uid }, { userEmail }],
+          });
 
-        if (doc) {
-          const isOwner = doc.ownerId === decodedToken.uid || doc.ownerEmail === userEmail;
-          const isShared = doc.sharedWith && doc.sharedWith.includes(userEmail);
-
-          if (!isOwner && !isShared) {
-            throw new Error("Access Denied: You do not have permission to view this document");
-          }
+        if (!permission) {
+          throw new Error("Access Denied: You do not have permission to view this document");
         }
+
+        // Update lastOpenedAt on metadata
+        await mongoose.connection.db
+          .collection("document_metadata")
+          .updateOne(
+            { documentId: data.documentName },
+            { $set: { lastOpenedAt: new Date() } }
+          );
       }
 
       return {
