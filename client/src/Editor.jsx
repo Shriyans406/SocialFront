@@ -65,6 +65,7 @@ const colors = [
 ];
 
 import { Extension } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 
 import { useParams } from "react-router-dom";
 
@@ -134,6 +135,31 @@ const customCaretRenderer = (caretUser) => {
   wrapper.append(label);
 
   return wrapper;
+};
+
+const uploadImageFile = async (file, editor) => {
+  if (!file || !editor) return;
+  const formData = new FormData();
+  formData.append("image", file);
+
+  try {
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const response = await fetch(`${API_URL}/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      editor.chain().focus().setImage({ src: data.url }).run();
+    } else {
+      console.error("Upload failed");
+      alert("Failed to upload image to server.");
+    }
+  } catch (error) {
+    console.error("Error uploading:", error);
+    alert("Server not responding. Is the Backend running?");
+  }
 };
 
 const Editor = () => {
@@ -368,6 +394,35 @@ const Editor = () => {
           },
         }),
 
+        // Custom Paste behavior
+        Extension.create({
+          name: "imagePaste",
+          addProseMirrorPlugins() {
+            const editor = this.editor;
+            return [
+              new Plugin({
+                key: new PluginKey("imagePaste"),
+                props: {
+                  handlePaste(view, event) {
+                    const items = Array.from(event.clipboardData?.items || []);
+                    const imageItem = items.find((item) => item.type.startsWith("image/"));
+
+                    if (imageItem) {
+                      const file = imageItem.getAsFile();
+                      if (file) {
+                        event.preventDefault();
+                        uploadImageFile(file, editor);
+                        return true;
+                      }
+                    }
+                    return false;
+                  },
+                },
+              }),
+            ];
+          },
+        }),
+
         // Collaboration (only added once provider is ready)
         ...(provider && user
           ? [
@@ -428,40 +483,7 @@ const Editor = () => {
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-    /*
-
-    const localUrl = URL.createObjectURL(file);
-    editor.chain().focus().setImage({ src: localUrl }).run();
-    
-    */
-
-    // 1. Create a "FormData" package to send the file
-    const formData = new FormData();
-    formData.append("image", file);
-
-    try {
-      // 2. Send the file to Developer A's API
-      // Note: Use http://localhost:3000/upload (or whatever port Dev A uses)
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-      const response = await fetch(`${API_URL}/upload`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-
-        // 3. Insert the image into Tiptap using the URL returned by the server
-        // The server usually returns { url: "http://..." }
-        editor.chain().focus().setImage({ src: data.url }).run();
-      } else {
-        console.error("Upload failed");
-        alert("Failed to upload image to server.");
-      }
-    } catch (error) {
-      console.error("Error uploading:", error);
-      alert("Server not responding. Is the Backend running?");
-    }
+    await uploadImageFile(file, editor);
   };
 
   const copyRoomLink = () => {
