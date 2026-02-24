@@ -313,6 +313,7 @@ const Editor = () => {
   const extensions = useMemo(() => {
     const baseExtensions = [
       StarterKit.configure({ history: false }),
+      Image,
       ImageResize,
       TextStyle,
       FontFamily,
@@ -351,6 +352,7 @@ const Editor = () => {
     {
       extensions: [
         StarterKit.configure({ history: false }),
+        Image,
         ImageResize,
         TextStyle,
         FontFamily,
@@ -827,6 +829,13 @@ const Editor = () => {
           <button onClick={() => document.getElementById("fileInput").click()}>
             <Upload size={18} />
           </button>
+          <input
+            type="file"
+            id="fileInput"
+            style={{ display: "none" }}
+            accept="image/*"
+            onChange={handleFileUpload}
+          />
         </div>
       </div>
 
