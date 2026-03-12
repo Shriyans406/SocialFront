@@ -3,9 +3,7 @@ body {
   background-color: #f3f3f3;
   font-family: "Arial", sans-serif;
   margin: 0;
-  padding: 20px;
-  display: flex;
-  justify-content: center;
+  padding: 0;
 }
 
 .app {
@@ -13,19 +11,11 @@ body {
   max-width: 850px;
 }
 
-header {
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-/* --- THE CONTAINER (Piece of Paper Look) --- */
+/* --- THE EDITOR CONTAINER --- */
 .editor-container {
   background: white;
   border: 1px solid #e2e8f0;
-  min-height: 800px; /* Professional A4 feel */
-  /* Day 9: Deeper shadow for premium look */
+  min-height: 800px;
   box-shadow:
     0 20px 25px -5px rgba(0, 0, 0, 0.1),
     0 10px 10px -5px rgba(0, 0, 0, 0.04);
@@ -35,12 +25,11 @@ header {
   position: relative;
 }
 
-/* --- THE TOOLBAR --- */
+/* --- THE TOOLBAR (legacy) --- */
 .toolbar {
   background: #f8fafc;
   padding: 12px;
   border-bottom: 1px solid #e2e8f0;
-  /* Day 9: Stretches to the edge of the paper margins */
   margin: -40px -40px 30px -40px;
   position: sticky;
   top: 0;
@@ -70,20 +59,11 @@ header {
       border-color: #1e293b;
     }
 
-    /* Day 10: Logic for faded buttons */
-    &.faded-button {
-      opacity: 0.4;
-      cursor: not-allowed;
-      filter: grayscale(1);
-      pointer-events: none;
-    }
-
-    /* Day 9: The purple share button */
     &.share-button {
       background: #6366f1;
       color: white;
       border: none;
-      margin-left: auto; /* Pushes it to the right */
+      margin-left: auto;
       font-weight: 600;
 
       &:hover {
@@ -96,7 +76,7 @@ header {
 
 /* --- THE EDITOR CONTENT (ProseMirror) --- */
 .ProseMirror {
-  outline: none; /* Removes default browser outline */
+  outline: none;
 
   p {
     margin-top: 0;
@@ -130,10 +110,9 @@ header {
     padding-left: 1.5rem;
   }
 
-  /* Day 9: Polished Image Styling */
   img {
     display: inline-block;
-    max-width: 100%; /* Keeps image inside paper */
+    max-width: 100%;
     height: auto;
     border-radius: 8px;
     margin: 10px 0;
@@ -146,7 +125,6 @@ header {
     }
   }
 
-  /* Day 7 Amendment: Resizer handles */
   .resizer {
     border: 1px solid #fff;
     background: #70cff8;
@@ -155,7 +133,7 @@ header {
   }
 }
 
-/* --- DAY 8: COLLABORATION CURSORS --- */
+/* --- COLLABORATION CURSORS --- */
 .collaboration-cursor__caret {
   position: relative;
   margin-left: -1px;
@@ -179,18 +157,19 @@ header {
   white-space: nowrap;
 }
 
-/* Layout & Background */
+/* --- GOOGLE DOCS LAYOUT --- */
 .google-docs-app {
-  background-color: #f8f9fa; /* Gray workspace background */
+  background-color: #f8f9fa;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
-  overflow: hidden; /* Prevent the entire page from scrolling */
+  overflow: hidden;
+  transition: background-color 0.3s;
 }
 
-/* Header Styling */
+/* Header */
 .docs-header {
   background: white;
   padding: 10px 20px;
@@ -198,9 +177,12 @@ header {
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  max-width: 1000px; /* Matching your preference */
+  max-width: 1000px;
   margin: 0 auto;
   box-sizing: border-box;
+  transition:
+    background 0.3s,
+    border-color 0.3s;
 }
 
 .header-left {
@@ -218,6 +200,7 @@ header {
   font-family: "Google Sans", Arial, sans-serif;
   color: #202124;
   outline: none;
+  transition: color 0.3s;
 }
 
 .title-section {
@@ -229,16 +212,8 @@ header {
   border-color: #ccc;
 }
 
-.docs-fake-menu {
-  display: flex;
-  gap: 12px;
-  font-size: 14px;
-  color: #444;
-  margin-left: 5px;
-}
-
 .docs-share-button {
-  background-color: #c2e7ff; /* Google's light blue */
+  background-color: #c2e7ff;
   border: none;
   padding: 8px 20px;
   border-radius: 20px;
@@ -247,11 +222,14 @@ header {
   gap: 8px;
   font-weight: 500;
   cursor: pointer;
+  transition:
+    background 0.3s,
+    color 0.3s;
 }
 
-/* Toolbar Styling */
+/* Toolbar */
 .toolbar-wrapper {
-  background-color: #f8f9fa; /* Google's light grey toolbar look */
+  background-color: #f8f9fa;
   border-top: 1px solid #e0e0e0;
   display: flex;
   justify-content: center;
@@ -259,6 +237,9 @@ header {
   width: 100%;
   max-width: 1000px;
   margin: 0 auto;
+  transition:
+    background 0.3s,
+    border-color 0.3s;
 }
 
 .google-toolbar {
@@ -269,26 +250,26 @@ header {
   align-items: center;
   gap: 4px;
   margin: 10px 0;
-  width: fit-content; /* Only as wide as the icons */
-  max-width: 90vw; /* Prevents overflow */
+  width: fit-content;
+  max-width: 90vw;
+  transition: background 0.3s;
 }
 
 .google-toolbar button {
   background: transparent;
   border: none;
-  padding: 6px; /* Slightly reduced padding to save horizontal space */
+  padding: 6px;
   border-radius: 6px;
   cursor: pointer;
   color: #444;
-  transition: background-color 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.google-toolbar button:hover {
-  background-color: #dee1e6;
-}
 .google-toolbar button.active {
   background-color: #d3e3fd;
   color: #041e49;
@@ -300,36 +281,54 @@ header {
   height: 20px;
   background: #c7c7c7;
   margin: 0 8px;
+  transition: background 0.3s;
 }
 
-/* The Page (The Canvas) */
+/* Canvas */
 .docs-canvas {
   flex: 1;
-  overflow-y: auto; /* Only the editor area scrolls now */
+  overflow-y: auto;
   padding: 20px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  transition: background 0.3s;
 }
 
 .page-container {
   background: white;
-  width: 816px; /* It will now fill the 1000px of its parent */
-  max-width: 850px; /* Slightly narrower than header for a 'boxed' look */
+  width: 816px;
+  max-width: 850px;
   min-height: 1056px;
   padding: 80px 100px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   margin-bottom: 50px;
+  transition:
+    background 0.3s,
+    color 0.3s,
+    box-shadow 0.3s;
 }
 
-/* TipTap Content Area Styling */
+/* TipTap Content Area */
 .ProseMirror {
   outline: none;
   font-family: Arial, sans-serif;
   font-size: 16px;
   line-height: 1.5;
-  text-align: left; /* Default */
+  text-align: left;
   color: #202124;
+  transition: color 0.3s;
+
+  p {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.5;
+  }
+
+  p + p {
+    margin-top: 0 !important;
+  }
 }
 
 .ProseMirror [style*="text-align: center"] {
@@ -342,7 +341,7 @@ header {
   text-align: justify;
 }
 
-/* Font Selector Styling */
+/* Font Selector */
 .font-select {
   background: white;
   border: 1px solid transparent;
@@ -353,22 +352,82 @@ header {
   outline: none;
   color: #444;
   width: 100px;
+  transition:
+    background 0.3s,
+    color 0.3s;
 }
 
 .font-select:hover {
   background-color: #dee1e6;
 }
 
-/* Target the editor content area */
-.ProseMirror {
-  p {
-    margin: 0 !important; /* Removes the 2-line gap effect */
-    padding: 0 !important;
-    line-height: 1.5; /* Optional: gives a clean, readable line spacing */
-  }
+/* Status indicator */
+.status-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
-  /* Ensure there is a small space only if you actually want one */
-  p + p {
-    margin-top: 0 !important;
-  }
+.status-dot {
+  font-size: 14px;
+  transition: color 0.3s;
+}
+
+.status-text {
+  font-size: 13px;
+  transition: color 0.3s;
+}
+
+/* ============================================================
+   DARK MODE — applied to page content via .dark-page class
+   ============================================================ */
+.dark-page .ProseMirror {
+  color: #e8eaed;
+}
+
+.dark-page .ProseMirror h1,
+.dark-page .ProseMirror h2,
+.dark-page .ProseMirror h3,
+.dark-page .ProseMirror h4,
+.dark-page .ProseMirror h5,
+.dark-page .ProseMirror h6 {
+  color: #e8eaed;
+}
+
+.dark-page .ProseMirror code {
+  background: #374151;
+  color: #93c5fd;
+}
+
+.dark-page .ProseMirror pre {
+  background: #111827;
+  color: #e8eaed;
+  border: 1px solid #374151;
+}
+
+.dark-page .ProseMirror blockquote {
+  border-left: 4px solid #4b5563;
+  color: #9aa0a6;
+}
+
+.dark-page .ProseMirror a {
+  color: #8ab4f8;
+}
+
+.dark-page .ProseMirror img.ProseMirror-selectednode {
+  outline: 3px solid #8ab4f8;
+  box-shadow: 0 0 15px rgba(138, 180, 248, 0.4);
+}
+
+.dark-page .ProseMirror ul,
+.dark-page .ProseMirror ol {
+  color: #e8eaed;
+}
+
+.dark-page .ProseMirror strong {
+  color: #f3f4f6;
+}
+
+.dark-page .ProseMirror em {
+  color: #d1d5db;
 }
